@@ -44,6 +44,7 @@ read_input(FILE*   fp,
            double& friction,
            double& forcecutoff,
            double& listcutoff,
+           string& chargefile,
            int&    nstep,
            int&    nconfig,
            int&    nstat,
@@ -60,6 +61,7 @@ read_input(FILE*   fp,
   friction=0.0;
   forcecutoff=2.5;
   listcutoff=3.0;
+  chargefile="";
   nstep=1;
   nconfig=10;
   nstat=1;
@@ -98,6 +100,11 @@ read_input(FILE*   fp,
       sscanf(line.c_str(),"%s %lf",buffer,&forcecutoff);
     else if(keyword=="listcutoff")
       sscanf(line.c_str(),"%s %lf",buffer,&listcutoff);
+    else if(keyword=="chargefile")
+    {
+      sscanf(line.c_str(),"%s %s",buffer,buffer1);
+      chargefile=buffer1;
+    }
     else if(keyword=="nstep")
       sscanf(line.c_str(),"%s %d",buffer,&nstep);
     else if(keyword=="nconfig")
@@ -234,7 +241,7 @@ void compute_list(const int natoms,const int listsize,const vector<Vector>& posi
   }
 }
 
-void compute_forces(const int natoms,const int listsize,const vector<Vector>& positions,const double cell[3],
+void compute_forces(const int natoms,const int listsize,const vector<Vector>& positions,const double cell[3],const vector<double> & charges,
                     double forcecutoff,const vector<int>& point,const vector<int>& list,vector<Vector>& forces,double & engconf)
 {
   Vector distance;        // distance of the two atoms
@@ -388,6 +395,7 @@ int main(FILE*in,FILE*out){
   int         maxneighbour;      // maximum average number of neighbours per atom
   int         idum;              // seed
   bool        wrapatoms;         // if true, atomic coordinates are written wrapped in minimal cell
+  string      chargefile;        // file holding charges
   string      inputfile;         // name of file with starting configuration (xyz)
   string      outputfile;        // name of file with final configuration (xyz)
   string      trajfile;          // name of the trajectory file (xyz)
@@ -403,7 +411,7 @@ int main(FILE*in,FILE*out){
   Random random;                 // random numbers stream
 
   read_input(stdin,temperature,tstep,friction,forcecutoff,
-             listcutoff,nstep,nconfig,nstat,
+             listcutoff,chargefile,nstep,nconfig,nstat,
              wrapatoms,inputfile,outputfile,trajfile,statfile,
              maxneighbour,idum);
 
@@ -453,6 +461,16 @@ int main(FILE*in,FILE*out){
 // positions are read from file inputfile
   read_positions(inputfile,natoms,positions,cell);
 
+// read charges
+  std::vector<double> charges(natoms,0.0);
+  if(chargefile.length()>0) {
+    FILE* fp=fopen(chargefile.c_str(),"r");
+    for(unsigned i=0;i<natoms;i++) {
+      fscanf(fp,"%lf",&charges[i]);
+    }
+    fclose(fp);
+  }
+
 // velocities are randomized according to temperature
   randomize_velocities(natoms,temperature,masses,velocities,random);
 
@@ -463,7 +481,7 @@ int main(FILE*in,FILE*out){
   for(int iatom=0;iatom<natoms;++iatom) for(int k=0;k<3;++k) positions0[iatom][k]=positions[iatom][k];
 
 // forces are computed before starting md
-  compute_forces(natoms,listsize,positions,cell,forcecutoff,point,list,forces,engconf);
+  compute_forces(natoms,listsize,positions,cell,charges,forcecutoff,point,list,forces,engconf);
 
 // here is the main md loop
 // Langevin thermostat is applied before and after a velocity-Verlet integrator
@@ -494,7 +512,7 @@ int main(FILE*in,FILE*out){
       fprintf(stdout,"List size: %d\n",point[natoms-1]);
     }
 
-    compute_forces(natoms,listsize,positions,cell,forcecutoff,point,list,forces,engconf);
+    compute_forces(natoms,listsize,positions,cell,charges,forcecutoff,point,list,forces,engconf);
 
     for(int iatom=0;iatom<natoms;iatom++) for(int k=0;k<3;k++)
       velocities[iatom][k]+=forces[iatom][k]*0.5*tstep/masses[iatom];
