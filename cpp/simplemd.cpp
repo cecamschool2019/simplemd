@@ -269,6 +269,11 @@ void compute_forces(const int natoms,const int listsize,const vector<Vector>& po
       double distance_pbc14=distance_pbc12*distance_pbc2;
       engconf+=4.0*(1.0/distance_pbc12 - 1.0/distance_pbc6) - engcorrection;
       for(int k=0;k<3;k++) f[k]=2.0*distance_pbc[k]*4.0*(6.0/distance_pbc14-3.0/distance_pbc8);
+
+      const double inv=1.0/sqrt(distance_pbc2);
+      engconf+=charges[iatom]*charges[jatom]* __TODO__
+      for(int k=0;k<3;k++) f[k]-=charges[iatom]*charges[jatom]* __TODO__
+
 // same force on the two atoms, with opposite sign:
       for(int k=0;k<3;k++) forces[iatom][k]+=f[k];
       for(int k=0;k<3;k++) forces[jatom][k]-=f[k];
